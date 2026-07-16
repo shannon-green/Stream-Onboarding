@@ -540,7 +540,7 @@ function reconcile(){
 
     if(!match){
       buckets.pending.push({ ...base, hitsYda: 0, hits7d: 0, hhYda: 0 });
-    } else if(match.hhYda === 0){
+    } else if(match.hitsYda === 0){
       buckets.pending.push({ ...base, hitsYda: match.hitsYda, hits7d: match.hits7d, hhYda: match.hhYda });
     } else {
       buckets.installed.push({ ...base, hitsYda: match.hitsYda, hits7d: match.hits7d, hhYda: match.hhYda });
