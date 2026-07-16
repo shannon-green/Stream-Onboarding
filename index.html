@@ -83,13 +83,25 @@ td.mono{ font-family:var(--mono); font-size:12px; }
 .table-scroll{ overflow-x:auto; max-height:360px; overflow-y:auto; }
 .empty-state{ padding:44px 20px; text-align:center; color:var(--text-faint); font-size:13px; }
 td.note-cell{ padding:6px 10px; }
+.note-wrap{ position:relative; display:flex; align-items:center; }
 .note-input{
   width:200px; background:var(--surface-2); border:1px solid var(--border); border-radius:7px;
-  padding:7px 10px; color:var(--text); font-family:var(--body); font-size:12.5px;
+  padding:7px 34px 7px 10px; color:var(--text); font-family:var(--body); font-size:12.5px;
   transition: border-color .15s ease;
 }
 .note-input:focus{ outline:none; border-color:var(--accent); }
 .note-input.saved{ border-color: var(--success); }
+.copy-note-btn{
+  position:absolute; right:5px; top:50%; transform:translateY(-50%);
+  display:flex; align-items:center; justify-content:center;
+  width:24px; height:24px; padding:0; border-radius:6px;
+  background:var(--surface); border:1px solid var(--border); color:var(--text-faint);
+  cursor:pointer; opacity:0; pointer-events:none; transition: opacity .15s ease, border-color .15s ease, color .15s ease;
+}
+.note-wrap:hover .copy-note-btn{ opacity:1; pointer-events:auto; }
+.copy-note-btn:hover{ border-color:var(--accent); color:var(--text); }
+.copy-note-btn.copied{ border-color:var(--success); color:var(--success); }
+.copy-note-btn svg{ width:13px; height:13px; }
 footer{ margin-top:30px; display:flex; justify-content:space-between; align-items:center; font-size:11.5px; color:var(--text-faint); font-family:var(--mono); flex-wrap:wrap; gap:10px;}
 /* Modal */
 .modal-overlay{ position:fixed; inset:0; background:rgba(6,9,16,0.75); backdrop-filter:blur(4px); display:none; align-items:center; justify-content:center; z-index:100; padding:20px;}
@@ -577,7 +589,7 @@ function renderSection(key, rows, hasHits){
         <td>${escapeHtml(r.reseller)}</td>
         <td class="mono">${escapeHtml(r.website)}</td>
         ${hasHits ? `<td class="mono">${r.hitsYda}</td><td class="mono">${r.hits7d}</td><td class="mono">${r.hhYda}</td>` : ''}
-        <td class="note-cell"><input class="note-input" type="text" placeholder="Add a note…" data-noteid="${escapeHtml(r.ohqId)}" value="${escapeHtml(noteVal)}"></td>
+        <td class="note-cell"><div class="note-wrap"><input class="note-input" type="text" placeholder="Add a note…" data-noteid="${escapeHtml(r.ohqId)}" value="${escapeHtml(noteVal)}"><button type="button" class="copy-note-btn" data-noteid="${escapeHtml(r.ohqId)}" title="Copy script"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div></td>
       </tr>
     `;
     }).join('');
@@ -606,6 +618,22 @@ document.addEventListener('input', e=>{
     e.target.classList.add('saved');
     setTimeout(()=> e.target.classList.remove('saved'), 900);
   }, 600);
+});
+
+document.addEventListener('click', async e=>{
+  const btn = e.target.closest && e.target.closest('.copy-note-btn');
+  if(!btn) return;
+  const wrap = btn.closest('.note-wrap');
+  const input = wrap ? wrap.querySelector('.note-input') : null;
+  const text = input ? input.value : '';
+  try{
+    await navigator.clipboard.writeText(text);
+    btn.classList.add('copied');
+    setTimeout(()=> btn.classList.remove('copied'), 1200);
+  }catch(e){
+    // Clipboard API can fail without HTTPS or permissions — fall back to a manual select
+    if(input){ input.focus(); input.select(); }
+  }
 });
 
 function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
