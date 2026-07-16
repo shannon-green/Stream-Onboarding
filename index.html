@@ -419,22 +419,31 @@ function normKey(row, ...names){
   return "";
 }
 
-function dedupeByOhqId(rows, keyField){
+function dedupeByOhqId(rows, keyField, fallbackField){
   const seen = new Map();
   const result = [];
   rows.forEach(r => {
-    const key = (r[keyField] || '').trim().toUpperCase();
-    if(!key){ result.push(r); return; }
+    let key = (r[keyField] || '').trim().toUpperCase();
+    if(!key && fallbackField){ key = (r[fallbackField] || '').trim().toUpperCase(); }
+    if(!key){ result.push(r); return; } // no identifier at all — keep every such row
     if(!seen.has(key)){ seen.set(key, r); result.push(r); }
   });
   return result;
 }
 
 function mergeOnboardingKeepingExisting(existingRows, newRows){
-  const existingIds = new Set(existingRows.map(r => (r.channelOhqId || '').trim().toUpperCase()).filter(Boolean));
+  // Prefer Channel OHQ ID as the identity key; fall back to OHQ ID for rows that don't have one yet
+  // (e.g. New Onboardings), so re-uploading the same file doesn't create duplicate rows.
+  const keyFor = r => {
+    const c = (r.channelOhqId || '').trim().toUpperCase();
+    if(c) return c;
+    const o = (r.ohqId || '').trim().toUpperCase();
+    return o ? `OHQ:${o}` : '';
+  };
+  const existingIds = new Set(existingRows.map(keyFor).filter(Boolean));
   const merged = [...existingRows];
   newRows.forEach(r => {
-    const key = (r.channelOhqId || '').trim().toUpperCase();
+    const key = keyFor(r);
     if(!key){ merged.push(r); return; }
     if(!existingIds.has(key)){
       merged.push(r);
@@ -489,7 +498,7 @@ async function handleFile(kind, file){
       coreChannelId: (normKey(r,"Core Channel ID")||"").trim(),
       reseller: (normKey(r,"Reseller Channel")||"").trim(),
       website: (normKey(r,"Website")||"").trim(),
-    })).filter(r => r.accountName), 'channelOhqId');
+    })).filter(r => r.accountName), 'channelOhqId', 'ohqId');
     onboardData = mergeOnboardingKeepingExisting(onboardData, parsedRows);
     await saveFile('onboard', onboardData, file.name);
     lastOnboardUploadedAt = new Date().toISOString();
