@@ -564,9 +564,9 @@ function renderSection(key, rows, hasHits){
   } else {
     table.style.display = ''; empty.style.display = 'none';
     tbody.innerHTML = filtered.map(r => {
-      const upId = (r.channelOhqId||'').toUpperCase();
+      const upId = (r.ohqId||'').toUpperCase();
       const activeEl = document.activeElement;
-      const isEditingThis = activeEl && activeEl.classList && activeEl.classList.contains('note-input') && activeEl.dataset.channelid && activeEl.dataset.channelid.toUpperCase() === upId;
+      const isEditingThis = activeEl && activeEl.classList && activeEl.classList.contains('note-input') && activeEl.dataset.noteid && activeEl.dataset.noteid.toUpperCase() === upId;
       const noteVal = isEditingThis ? activeEl.value : (notesMap[upId] || '');
       return `
       <tr>
@@ -577,7 +577,7 @@ function renderSection(key, rows, hasHits){
         <td>${escapeHtml(r.reseller)}</td>
         <td class="mono">${escapeHtml(r.website)}</td>
         ${hasHits ? `<td class="mono">${r.hitsYda}</td><td class="mono">${r.hits7d}</td><td class="mono">${r.hhYda}</td>` : ''}
-        <td class="note-cell"><input class="note-input" type="text" placeholder="Add a note…" data-channelid="${escapeHtml(r.channelOhqId)}" value="${escapeHtml(noteVal)}"></td>
+        <td class="note-cell"><input class="note-input" type="text" placeholder="Add a note…" data-noteid="${escapeHtml(r.ohqId)}" value="${escapeHtml(noteVal)}"></td>
       </tr>
     `;
     }).join('');
@@ -587,22 +587,22 @@ function renderSection(key, rows, hasHits){
 
 document.addEventListener('focusin', e=>{
   if(e.target.classList && e.target.classList.contains('note-input')){
-    editingNoteKeys.add(e.target.dataset.channelid.toUpperCase());
+    editingNoteKeys.add(e.target.dataset.noteid.toUpperCase());
   }
 });
 document.addEventListener('focusout', e=>{
   if(e.target.classList && e.target.classList.contains('note-input')){
-    editingNoteKeys.delete(e.target.dataset.channelid.toUpperCase());
+    editingNoteKeys.delete(e.target.dataset.noteid.toUpperCase());
   }
 });
 document.addEventListener('input', e=>{
   if(!(e.target.classList && e.target.classList.contains('note-input'))) return;
-  const channelId = e.target.dataset.channelid;
+  const noteId = e.target.dataset.noteid;
   const text = e.target.value;
   e.target.classList.remove('saved');
-  clearTimeout(noteSaveTimers[channelId]);
-  noteSaveTimers[channelId] = setTimeout(async ()=>{
-    await saveNote(channelId, text);
+  clearTimeout(noteSaveTimers[noteId]);
+  noteSaveTimers[noteId] = setTimeout(async ()=>{
+    await saveNote(noteId, text);
     e.target.classList.add('saved');
     setTimeout(()=> e.target.classList.remove('saved'), 900);
   }, 600);
@@ -644,7 +644,7 @@ function downloadCsv(rows, filename, hasHits){
   rows.forEach(r => {
     const vals = [r.accountName, r.ohqId, r.channelOhqId, r.coreChannelId, r.reseller, r.website];
     if(hasHits) vals.push(r.hitsYda, r.hits7d, r.hhYda);
-    vals.push(notesMap[(r.channelOhqId||'').toUpperCase()] || '');
+    vals.push(notesMap[(r.ohqId||'').toUpperCase()] || '');
     lines.push(vals.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(','));
   });
   const blob = new Blob([lines.join('\n')], { type:'text/csv' });
