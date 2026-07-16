@@ -583,13 +583,13 @@ function renderSection(key, rows, hasHits){
       return `
       <tr>
         <td class="company">${escapeHtml(r.accountName)}</td>
+        <td class="note-cell"><div class="note-wrap"><input class="note-input" type="text" placeholder="Add a note…" data-noteid="${escapeHtml(r.ohqId)}" value="${escapeHtml(noteVal)}"><button type="button" class="copy-note-btn" data-noteid="${escapeHtml(r.ohqId)}" title="Copy script"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div></td>
         <td class="mono">${escapeHtml(r.ohqId)}</td>
         <td class="mono">${escapeHtml(r.channelOhqId)}</td>
         <td class="mono">${escapeHtml(r.coreChannelId)}</td>
         <td>${escapeHtml(r.reseller)}</td>
         <td class="mono">${escapeHtml(r.website)}</td>
         ${hasHits ? `<td class="mono">${r.hitsYda}</td><td class="mono">${r.hits7d}</td><td class="mono">${r.hhYda}</td>` : ''}
-        <td class="note-cell"><div class="note-wrap"><input class="note-input" type="text" placeholder="Add a note…" data-noteid="${escapeHtml(r.ohqId)}" value="${escapeHtml(noteVal)}"><button type="button" class="copy-note-btn" data-noteid="${escapeHtml(r.ohqId)}" title="Copy script"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div></td>
       </tr>
     `;
     }).join('');
