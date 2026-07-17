@@ -133,10 +133,35 @@ footer{ margin-top:30px; display:flex; justify-content:space-between; align-item
   .card{ padding:12px 10px; }
   .card .v{ font-size:20px; }
   .card .k{ font-size:9.5px; }
-}
+}.site-gate-overlay{ position:fixed; inset:0; background:var(--bg); background-image:
+    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(76,124,243,0.10), transparent),
+    radial-gradient(ellipse 700px 500px at 100% 0%, rgba(47,191,113,0.05), transparent);
+  display:flex; align-items:center; justify-content:center; z-index:200; padding:20px;}
+.site-gate-overlay.hidden{ display:none; }
+.site-gate-card{ background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:32px; width:100%; max-width:380px; text-align:center;}
+.site-gate-mark{ width:44px;height:44px;border-radius:10px; background:linear-gradient(135deg,#F5A623,#FFC469); display:flex;align-items:center;justify-content:center; font-size:20px; margin:0 auto 16px;}
+.site-gate-card h2{ font-family:var(--display); font-size:18px; font-weight:600; margin-bottom:6px;}
+.site-gate-card p{ font-size:13px; color:var(--text-dim); margin-bottom:20px;}
+.site-gate-card input[type=password]{ width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:9px; padding:11px 14px; color:var(--text); font-family:var(--mono); font-size:14px; margin-bottom:10px;}
+.site-gate-card input:focus{ outline:none; border-color:var(--accent); }
+.site-gate-card .err{ color:var(--danger); font-size:12.5px; margin-bottom:12px; min-height:16px; }
+.site-gate-card button{ width:100%; }
+#appRoot{ display:none; }
+#appRoot.unlocked{ display:block; }
 </style>
 </head>
 <body>
+<div class="site-gate-overlay" id="siteGateOverlay">
+  <div class="site-gate-card">
+    <div class="site-gate-mark">🚀</div>
+    <h2>Stream Onboardings</h2>
+    <p>Enter the password to view this dashboard.</p>
+    <input type="password" id="siteGateInput" placeholder="Password" autocomplete="off">
+    <div class="err" id="siteGateErr"></div>
+    <button class="btn btn-primary" id="siteGateSubmit">Unlock</button>
+  </div>
+</div>
+<div id="appRoot">
 <div class="wrap">
 <header>
   <div class="brand">
@@ -168,7 +193,7 @@ footer{ margin-top:30px; display:flex; justify-content:space-between; align-item
   <div class="upload-grid">
     <div class="upload-slot" id="slotOnboard">
       <h4>Daily Onboarding List</h4>
-      <div class="filehint">.csv or .xlsx — Account Name, OHQ ID, Channel OHQ ID, Core Channel ID, Reseller Channel, Website</div>
+      <div class="filehint">.csv or .xlsx — Account Name, OHQ ID, Channel OHQ ID, Core Channel ID, Website</div>
       <button class="btn btn-primary" onclick="document.getElementById('fileOnboard').click()">Choose file</button>
       <input type="file" id="fileOnboard" accept=".csv,.xlsx,.xls">
       <div class="last" id="lastOnboard">No file uploaded yet</div>
@@ -195,7 +220,7 @@ footer{ margin-top:30px; display:flex; justify-content:space-between; align-item
   <div class="panel-body-top"><input class="search" id="searchNew" placeholder="Search by name, Channel ID, or URL…"></div>
   <div class="table-scroll">
     <table id="tableNew">
-      <thead><tr><th>Account Name</th><th>Script</th><th>OHQ ID</th><th>Channel OHQ ID</th><th>Core Channel ID</th><th>Reseller Channel</th><th>Website</th></tr></thead>
+      <thead><tr><th>Account Name</th><th>Script</th><th>OHQ ID</th><th>Channel OHQ ID</th><th>Core Channel ID</th><th>Website</th></tr></thead>
       <tbody></tbody>
     </table>
     <div class="empty-state" id="emptyNew">Upload both files to see results.</div>
@@ -211,7 +236,7 @@ footer{ margin-top:30px; display:flex; justify-content:space-between; align-item
   <div class="panel-body-top"><input class="search" id="searchPending" placeholder="Search by name, Channel ID, or URL…"></div>
   <div class="table-scroll">
     <table id="tablePending">
-      <thead><tr><th>Account Name</th><th>Script</th><th>OHQ ID</th><th>Channel OHQ ID</th><th>Core Channel ID</th><th>Reseller Channel</th><th>Website</th><th>Hits (YDA)</th><th>Hits (7d)</th><th>HH (YDA)</th></tr></thead>
+      <thead><tr><th>Account Name</th><th>Script</th><th>OHQ ID</th><th>Channel OHQ ID</th><th>Core Channel ID</th><th>Website</th><th>Hits (YDA)</th><th>Hits (7d)</th><th>HH (YDA)</th></tr></thead>
       <tbody></tbody>
     </table>
     <div class="empty-state" id="emptyPending">Upload both files to see results.</div>
@@ -227,7 +252,7 @@ footer{ margin-top:30px; display:flex; justify-content:space-between; align-item
   <div class="panel-body-top"><input class="search" id="searchInstalled" placeholder="Search by name, Channel ID, or URL…"></div>
   <div class="table-scroll">
     <table id="tableInstalled">
-      <thead><tr><th>Account Name</th><th>Script</th><th>OHQ ID</th><th>Channel OHQ ID</th><th>Core Channel ID</th><th>Reseller Channel</th><th>Website</th><th>Hits (YDA)</th><th>Hits (7d)</th><th>HH (YDA)</th></tr></thead>
+      <thead><tr><th>Account Name</th><th>Script</th><th>OHQ ID</th><th>Channel OHQ ID</th><th>Core Channel ID</th><th>Website</th><th>Hits (YDA)</th><th>Hits (7d)</th><th>HH (YDA)</th></tr></thead>
       <tbody></tbody>
     </table>
     <div class="empty-state" id="emptyInstalled">Upload both files to see results.</div>
@@ -237,6 +262,7 @@ footer{ margin-top:30px; display:flex; justify-content:space-between; align-item
 <footer>
   <span id="lastUpdated">No uploads yet</span>
 </footer>
+</div>
 </div>
 
 <!-- Password modal -->
@@ -496,7 +522,6 @@ async function handleFile(kind, file){
       ohqId: (normKey(r,"OHQ ID")||"").trim(),
       channelOhqId: (normKey(r,"Channel OHQ ID")||"").trim(),
       coreChannelId: (normKey(r,"Core Channel ID")||"").trim(),
-      reseller: (normKey(r,"Reseller Channel")||"").trim(),
       website: (normKey(r,"Website")||"").trim(),
     })).filter(r => r.accountName), 'channelOhqId', 'ohqId');
     onboardData = mergeOnboardingKeepingExisting(onboardData, parsedRows);
@@ -538,7 +563,7 @@ function reconcile(){
   const buckets = { new: [], pending: [], installed: [] };
 
   onboardData.forEach(o => {
-    const base = { accountName:o.accountName, ohqId:o.ohqId, channelOhqId:o.channelOhqId, coreChannelId:o.coreChannelId, reseller:o.reseller, website:o.website };
+    const base = { accountName:o.accountName, ohqId:o.ohqId, channelOhqId:o.channelOhqId, coreChannelId:o.coreChannelId, website:o.website };
 
     if(!o.channelOhqId){
       buckets.new.push(base);
@@ -596,7 +621,6 @@ function renderSection(key, rows, hasHits){
         <td class="mono">${escapeHtml(r.ohqId)}</td>
         <td class="mono">${escapeHtml(r.channelOhqId)}</td>
         <td class="mono">${escapeHtml(r.coreChannelId)}</td>
-        <td>${escapeHtml(r.reseller)}</td>
         <td class="mono">${escapeHtml(r.website)}</td>
         ${hasHits ? `<td class="mono">${r.hitsYda}</td><td class="mono">${r.hits7d}</td><td class="mono">${r.hhYda}</td>` : ''}
       </tr>
@@ -674,12 +698,12 @@ document.getElementById('searchInstalled').addEventListener('input', e=>{ search
 
 // ---------- CSV download ----------
 function downloadCsv(rows, filename, hasHits){
-  const headers = ['Account Name','OHQ ID','Channel OHQ ID','Core Channel ID','Reseller Channel','Website'];
+  const headers = ['Account Name','OHQ ID','Channel OHQ ID','Core Channel ID','Website'];
   if(hasHits) headers.push('Hits (YDA)','Hits (7d)','HH (YDA)');
   headers.push('Script');
   const lines = [headers.join(',')];
   rows.forEach(r => {
-    const vals = [r.accountName, r.ohqId, r.channelOhqId, r.coreChannelId, r.reseller, r.website];
+    const vals = [r.accountName, r.ohqId, r.channelOhqId, r.coreChannelId, r.website];
     if(hasHits) vals.push(r.hitsYda, r.hits7d, r.hhYda);
     vals.push(notesMap[(r.ohqId||'').toUpperCase()] || '');
     lines.push(vals.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(','));
@@ -735,6 +759,39 @@ document.getElementById('confirmClearBtn').addEventListener('click', async ()=>{
   confirmOverlay.classList.remove('show');
   render();
 });
+
+// ---------- Site-wide password gate ----------
+const SITE_PASSWORD = "Stream";
+const gateOverlay = document.getElementById('siteGateOverlay');
+const gateInput = document.getElementById('siteGateInput');
+const gateErr = document.getElementById('siteGateErr');
+const gateSubmit = document.getElementById('siteGateSubmit');
+const appRoot = document.getElementById('appRoot');
+
+function unlockSite(){
+  gateOverlay.classList.add('hidden');
+  appRoot.classList.add('unlocked');
+  try{ sessionStorage.setItem('stream_onboarding_unlocked', '1'); }catch(e){}
+}
+
+function tryUnlock(){
+  if(gateInput.value === SITE_PASSWORD){
+    unlockSite();
+  } else {
+    gateErr.textContent = 'Incorrect password. Try again.';
+  }
+}
+
+gateSubmit.addEventListener('click', tryUnlock);
+gateInput.addEventListener('keydown', e=>{ if(e.key === 'Enter') tryUnlock(); });
+
+let alreadyUnlocked = false;
+try{ alreadyUnlocked = sessionStorage.getItem('stream_onboarding_unlocked') === '1'; }catch(e){}
+if(alreadyUnlocked){
+  unlockSite();
+} else {
+  setTimeout(()=> gateInput.focus(), 50);
+}
 
 // ---------- Init + polling ----------
 loadStoredData();
