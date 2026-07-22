@@ -102,6 +102,14 @@ td.note-cell{ padding:6px 10px; }
 .copy-note-btn:hover{ border-color:var(--accent); color:var(--text); }
 .copy-note-btn.copied{ border-color:var(--success); color:var(--success); }
 .copy-note-btn svg{ width:13px; height:13px; }
+.assignee-input{
+  width:110px; background:var(--surface-2); border:1px solid var(--border); border-radius:7px;
+  padding:7px 10px; color:var(--text); font-family:var(--body); font-size:12.5px;
+  transition: border-color .15s ease;
+}
+.assignee-input:focus{ outline:none; border-color:var(--accent); }
+.assignee-input.saved{ border-color: var(--success); }
+.assignee-input::placeholder{ color:var(--text-faint); }
 footer{ margin-top:30px; display:flex; justify-content:space-between; align-items:center; font-size:11.5px; color:var(--text-faint); font-family:var(--mono); flex-wrap:wrap; gap:10px;}
 /* Modal */
 .modal-overlay{ position:fixed; inset:0; background:rgba(6,9,16,0.75); backdrop-filter:blur(4px); display:none; align-items:center; justify-content:center; z-index:100; padding:20px;}
@@ -220,7 +228,7 @@ footer{ margin-top:30px; display:flex; justify-content:space-between; align-item
   <div class="panel-body-top"><input class="search" id="searchNew" placeholder="Search by name, Channel ID, or URL…"></div>
   <div class="table-scroll">
     <table id="tableNew">
-      <thead><tr><th>Account Name</th><th>Script</th><th>OHQ ID</th><th>Channel OHQ ID</th><th>Core Channel ID</th><th>Website</th></tr></thead>
+      <thead><tr><th>Account Name</th><th>Script</th><th>Assignee</th><th>OHQ ID</th><th>Channel OHQ ID</th><th>Core Channel ID</th><th>Website</th></tr></thead>
       <tbody></tbody>
     </table>
     <div class="empty-state" id="emptyNew">Upload both files to see results.</div>
@@ -360,11 +368,21 @@ async function storageDelete(key){
 let onboardData = [];
 let activeData = [];
 let notesMap = {};
+let assigneesData = { rotationIndex: 0, assignments: {} };
+const ROTATION_NAMES = ['Genna','Morgan','David','Bill'];
 let searchTerms = { new:'', pending:'', installed:'' };
 let noteSaveTimers = {};
+let assigneeSaveTimers = {};
 let editingNoteKeys = new Set();
 let lastOnboardUploadedAt = null;
 let lastActiveUploadedAt = null;
+
+function identityKeyFor(r){
+  const c = (r.channelOhqId || '').trim().toUpperCase();
+  if(c) return c;
+  const o = (r.ohqId || '').trim().toUpperCase();
+  return o ? `OHQ:${o}` : '';
+}
 
 function parseStoredValue(value){
   if(value === null || value === undefined) return null;
@@ -406,6 +424,14 @@ async function loadStoredData(){
     if(nt && nt.value){ notesMap = parseStoredValue(nt.value) || {}; }
   }catch(e){ showStorageError(`Problem loading notes: ${e.message}`); }
 
+  try{
+    const asg = await storageGet('reconcile:assignees');
+    if(asg && asg.value){
+      const parsed = parseStoredValue(asg.value);
+      if(parsed) assigneesData = { rotationIndex: parsed.rotationIndex || 0, assignments: parsed.assignments || {} };
+    }
+  }catch(e){ showStorageError(`Problem loading assignees: ${e.message}`); }
+
   render();
 }
 
@@ -421,6 +447,52 @@ async function saveNote(channelId, text){
     await storageSet('reconcile:notes', JSON.stringify(current));
     notesMap = current;
   }catch(e){ /* best-effort */ }
+}
+
+// Manual override of an assignee (e.g. covering for someone OOO). This only touches the
+// assignments map — it never resets or rewinds the rotation counter.
+async function saveAssigneeOverride(ohqId, text){
+  const key = (ohqId || '').trim().toUpperCase();
+  if(!key) return;
+  try{
+    let current = { rotationIndex: 0, assignments: {} };
+    try{
+      const asg = await storageGet('reconcile:assignees');
+      if(asg && asg.value){
+        const parsed = parseStoredValue(asg.value);
+        if(parsed) current = { rotationIndex: parsed.rotationIndex || 0, assignments: parsed.assignments || {} };
+      }
+    }catch(e){}
+    current.assignments[key] = text;
+    await storageSet('reconcile:assignees', JSON.stringify(current));
+    assigneesData = current;
+  }catch(e){ /* best-effort */ }
+}
+
+// Automatically assigns the next person in the rotation to any genuinely new account rows
+// (rows that weren't already present before this upload). Existing assignments are never touched.
+async function autoAssignRotation(newRows){
+  if(!newRows.length) return;
+  let current = { rotationIndex: 0, assignments: {} };
+  try{
+    const asg = await storageGet('reconcile:assignees');
+    if(asg && asg.value){
+      const parsed = parseStoredValue(asg.value);
+      if(parsed) current = { rotationIndex: parsed.rotationIndex || 0, assignments: parsed.assignments || {} };
+    }
+  }catch(e){}
+
+  newRows.forEach(r => {
+    const key = (r.ohqId || '').trim().toUpperCase();
+    if(!key) return; // no OHQ ID to key the assignment on
+    if(current.assignments[key]) return; // already assigned — never reassign automatically
+    const name = ROTATION_NAMES[current.rotationIndex % ROTATION_NAMES.length];
+    current.assignments[key] = name;
+    current.rotationIndex = (current.rotationIndex + 1) % ROTATION_NAMES.length;
+  });
+
+  await storageSet('reconcile:assignees', JSON.stringify(current));
+  assigneesData = current;
 }
 
 function updateLastLine(elId, filename, uploadedAt){
@@ -460,16 +532,10 @@ function dedupeByOhqId(rows, keyField, fallbackField){
 function mergeOnboardingKeepingExisting(existingRows, newRows){
   // Prefer Channel OHQ ID as the identity key; fall back to OHQ ID for rows that don't have one yet
   // (e.g. New Onboardings), so re-uploading the same file doesn't create duplicate rows.
-  const keyFor = r => {
-    const c = (r.channelOhqId || '').trim().toUpperCase();
-    if(c) return c;
-    const o = (r.ohqId || '').trim().toUpperCase();
-    return o ? `OHQ:${o}` : '';
-  };
-  const existingIds = new Set(existingRows.map(keyFor).filter(Boolean));
+  const existingIds = new Set(existingRows.map(identityKeyFor).filter(Boolean));
   const merged = [...existingRows];
   newRows.forEach(r => {
-    const key = keyFor(r);
+    const key = identityKeyFor(r);
     if(!key){ merged.push(r); return; }
     if(!existingIds.has(key)){
       merged.push(r);
@@ -517,6 +583,7 @@ async function handleFile(kind, file){
   }
 
   if(kind === 'onboard'){
+    const existingKeysBefore = new Set(onboardData.map(identityKeyFor).filter(Boolean));
     const parsedRows = dedupeByOhqId(rows.map(r => ({
       accountName: (normKey(r,"Account Name")||"").trim(),
       ohqId: (normKey(r,"OHQ ID")||"").trim(),
@@ -528,6 +595,12 @@ async function handleFile(kind, file){
     await saveFile('onboard', onboardData, file.name);
     lastOnboardUploadedAt = new Date().toISOString();
     updateLastLine('lastOnboard', file.name, lastOnboardUploadedAt);
+
+    const newlyAddedRows = parsedRows.filter(r => {
+      const k = identityKeyFor(r);
+      return k && !existingKeysBefore.has(k);
+    });
+    await autoAssignRotation(newlyAddedRows);
   } else {
     activeData = dedupeByOhqId(rows.map(r => ({
       clientName: (normKey(r,"Client Name")||"").trim(),
@@ -614,10 +687,13 @@ function renderSection(key, rows, hasHits){
       const activeEl = document.activeElement;
       const isEditingThis = activeEl && activeEl.classList && activeEl.classList.contains('note-input') && activeEl.dataset.noteid && activeEl.dataset.noteid.toUpperCase() === upId;
       const noteVal = isEditingThis ? activeEl.value : (notesMap[upId] || '');
+      const isEditingAssignee = activeEl && activeEl.classList && activeEl.classList.contains('assignee-input') && activeEl.dataset.assigneeid && activeEl.dataset.assigneeid.toUpperCase() === upId;
+      const assigneeVal = isEditingAssignee ? activeEl.value : (assigneesData.assignments[upId] || '');
       return `
       <tr>
         <td class="company">${escapeHtml(r.accountName)}</td>
         <td class="note-cell"><div class="note-wrap"><input class="note-input" type="text" placeholder="Add a note…" data-noteid="${escapeHtml(r.ohqId)}" value="${escapeHtml(noteVal)}"><button type="button" class="copy-note-btn" data-noteid="${escapeHtml(r.ohqId)}" title="Copy script"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div></td>
+        ${key === 'new' ? `<td class="note-cell"><input class="assignee-input" type="text" placeholder="Unassigned" data-assigneeid="${escapeHtml(r.ohqId)}" value="${escapeHtml(assigneeVal)}"></td>` : ''}
         <td class="mono">${escapeHtml(r.ohqId)}</td>
         <td class="mono">${escapeHtml(r.channelOhqId)}</td>
         <td class="mono">${escapeHtml(r.coreChannelId)}</td>
@@ -653,6 +729,19 @@ document.addEventListener('input', e=>{
   }, 600);
 });
 
+document.addEventListener('input', e=>{
+  if(!(e.target.classList && e.target.classList.contains('assignee-input'))) return;
+  const assigneeId = e.target.dataset.assigneeid;
+  const text = e.target.value;
+  e.target.classList.remove('saved');
+  clearTimeout(assigneeSaveTimers[assigneeId]);
+  assigneeSaveTimers[assigneeId] = setTimeout(async ()=>{
+    await saveAssigneeOverride(assigneeId, text);
+    e.target.classList.add('saved');
+    setTimeout(()=> e.target.classList.remove('saved'), 900);
+  }, 600);
+});
+
 document.addEventListener('click', async e=>{
   const btn = e.target.closest && e.target.closest('.copy-note-btn');
   if(!btn) return;
@@ -678,7 +767,7 @@ function render(){
   document.getElementById('cardInstalled').textContent = b.installed.length;
 
   const activeEl = document.activeElement;
-  const isTypingNote = activeEl && activeEl.classList && activeEl.classList.contains('note-input');
+  const isTypingNote = activeEl && activeEl.classList && (activeEl.classList.contains('note-input') || activeEl.classList.contains('assignee-input'));
   if(!isTypingNote){
     renderSection('new', b.new, false);
     renderSection('pending', b.pending, true);
@@ -701,11 +790,13 @@ function downloadCsv(rows, filename, hasHits){
   const headers = ['Account Name','OHQ ID','Channel OHQ ID','Core Channel ID','Website'];
   if(hasHits) headers.push('Hits (YDA)','Hits (7d)','HH (YDA)');
   headers.push('Script');
+  if(!hasHits) headers.push('Assignee');
   const lines = [headers.join(',')];
   rows.forEach(r => {
     const vals = [r.accountName, r.ohqId, r.channelOhqId, r.coreChannelId, r.website];
     if(hasHits) vals.push(r.hitsYda, r.hits7d, r.hhYda);
     vals.push(notesMap[(r.ohqId||'').toUpperCase()] || '');
+    if(!hasHits) vals.push(assigneesData.assignments[(r.ohqId||'').toUpperCase()] || '');
     lines.push(vals.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(','));
   });
   const blob = new Blob([lines.join('\n')], { type:'text/csv' });
